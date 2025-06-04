@@ -400,6 +400,9 @@ export async function convertBindingsToCfWorkerInitBindings(
 		} else if (binding.type === "secrets_store_secret") {
 			bindings.secrets_store_secrets ??= [];
 			bindings.secrets_store_secrets.push({ ...binding, binding: name });
+		} else if (binding.type === "unsafe_hello_world") {
+			bindings.unsafe_hello_world ??= [];
+			bindings.unsafe_hello_world.push({ ...binding, binding: name });
 		} else if (isUnsafeBindingType(binding.type)) {
 			bindings.unsafe ??= {
 				bindings: [],
