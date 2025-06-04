@@ -3,12 +3,16 @@ import { stat } from "fs/promises";
 import { getCIOverrideNetworkModeHost } from "../environment-variables/misc-variables";
 import { UserError } from "../errors";
 import { ImageRegistriesService } from "./client";
+import { loadAccount } from "./locations";
 import type { Config } from "../config";
 import type {
 	CommonYargsArgvJSON,
 	StrictYargsOptionsToInterfaceJSON,
 } from "../yargs-types";
-import type { ImageRegistryPermissions } from "./client";
+import type {
+	CompleteAccountCustomer,
+	ImageRegistryPermissions,
+} from "./client";
 
 // default cloudflare managed registry
 const domain = "registry.cloudchamber.cfdata.org";
@@ -101,7 +105,7 @@ export function dockerBuild(options: {
 		const buildExec = options.buildCmd.split(" ").shift();
 		const child = spawn(String(buildExec), buildCmd, {
 			stdio: [
-				options.dockerfile !== undefined ? "pipe" : undefined,
+				options.dockerfile !== undefined ? "pipe" : "inherit",
 				"inherit",
 				"inherit",
 			],
@@ -239,6 +243,15 @@ export async function build(args: BuildArgs): Promise<string> {
 		});
 		await dockerBuild({ buildCmd: bc, dockerfile: args.dockerfileContents });
 
+		// ensure the account is not allowed to build anything that exceeds the current
+		// account's disk size limits
+		const account = await loadAccount();
+		await ensureDiskLimits({
+			imageTag: args.tag,
+			pathToDocker: args.pathToDocker,
+			account: account,
+		});
+
 		if (args.push) {
 			await dockerLoginManagedRegistry({
 				pathToDocker: args.pathToDocker,
@@ -286,4 +299,57 @@ export async function pushCommand(
 
 		throw new UserError("An unknown error occurred");
 	}
+}
+
+export async function ensureDiskLimits(options: {
+	imageTag: string;
+	pathToDocker: string;
+	account: CompleteAccountCustomer;
+}): Promise<string> {
+	const imageTag = domain + "/" + options.imageTag;
+	const dockerPath = options.pathToDocker ?? "docker";
+	const maxAllowedImageSizeBytes =
+		(options.account.limits.disk_mb_per_deployment ?? 2000) * 1000 * 1000;
+
+	const { size, layers } = await runDockerInspect(imageTag, dockerPath);
+	const adjustedSize = Math.ceil(size * 1.1 + layers * 16 * 1000 * 1000);
+
+	if (maxAllowedImageSizeBytes < adjustedSize) {
+		throw new UserError(
+			`Image too large: needs ${Math.ceil(adjustedSize / 1000 / 1000)} MB, but your account is limited to images with size ${maxAllowedImageSizeBytes / 1000 / 1000} MB. Your account needs more disk size per instance to run this container.`
+		);
+	}
+
+	return imageTag;
+}
+
+function runDockerInspect(
+	image: string,
+	dockerPath: string
+): Promise<{ size: number; layers: number }> {
+	return new Promise((resolve, reject) => {
+		const proc = spawn(dockerPath, [
+			"image",
+			"inspect",
+			image,
+			"--format",
+			"{{ .Size }} {{ len .RootFS.Layers }}",
+		]);
+
+		let stdout = "";
+		let stderr = "";
+
+		proc.stdout.on("data", (chunk) => (stdout += chunk));
+		proc.stderr.on("data", (chunk) => (stderr += chunk));
+
+		proc.on("close", (code) => {
+			if (code !== 0) {
+				return reject(
+					new Error(`failed inspecting image locally: ${stderr.trim()}`)
+				);
+			}
+			const [sizeStr, layerStr] = stdout.trim().split(" ");
+			resolve({ size: parseInt(sizeStr, 10), layers: parseInt(layerStr, 10) });
+		});
+	});
 }
