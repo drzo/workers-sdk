@@ -1,5 +1,13 @@
 # @cloudflare/vite-plugin
 
+## 1.5.1
+
+### Patch Changes
+
+- Updated dependencies [[`485cd08`](https://github.com/cloudflare/workers-sdk/commit/485cd08679eaa3a47e9951c708b80f5c33a0a097), [`d1a1787`](https://github.com/cloudflare/workers-sdk/commit/d1a1787b27467417830f5d5c7bb8e7a14d346e9c), [`e3b3ef5`](https://github.com/cloudflare/workers-sdk/commit/e3b3ef51cfbdb5ffa15ebe81656460c340a2bba4)]:
+  - miniflare@4.20250604.0
+  - wrangler@4.19.2
+
 ## 1.5.0
 
 ### Minor Changes
