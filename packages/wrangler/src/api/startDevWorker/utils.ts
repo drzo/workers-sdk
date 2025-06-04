@@ -265,6 +265,12 @@ export function convertCfWorkerInitBindingsToBindings(
 				}
 				break;
 			}
+			case "unsafe_hello_world": {
+				for (const { binding, ...x } of info) {
+					output[binding] = { type: "unsafe_hello_world", ...x };
+				}
+				break;
+			}
 			default: {
 				assertNever(type);
 			}
@@ -307,6 +313,7 @@ export async function convertBindingsToCfWorkerInitBindings(
 		unsafe: undefined,
 		assets: undefined,
 		pipelines: undefined,
+		unsafe_hello_world: undefined,
 	};
 
 	const fetchers: Record<string, ServiceFetch> = {};
