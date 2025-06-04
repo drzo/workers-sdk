@@ -45,6 +45,7 @@ import {
 	DurableObjectClassNames,
 	getDirectSocketName,
 	getGlobalServices,
+	HELLO_WORLD_PLUGIN_NAME,
 	HOST_CAPNP_CONNECT,
 	KV_PLUGIN_NAME,
 	normaliseDurableObject,
@@ -2606,6 +2607,15 @@ export class Miniflare {
 		workerName?: string
 	): Promise<ReplaceWorkersTypes<R2Bucket>> {
 		return this.#getProxy(R2_PLUGIN_NAME, bindingName, workerName);
+	}
+	getHelloWorldBinding(
+		bindingName: string,
+		workerName?: string
+	): Promise<{
+		get: () => Promise<string | null>;
+		set: (value: string) => Promise<void>;
+	}> {
+		return this.#getProxy(HELLO_WORLD_PLUGIN_NAME, bindingName, workerName);
 	}
 
 	/** @internal */
